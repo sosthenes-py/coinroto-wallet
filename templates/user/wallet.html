@@ -1,0 +1,806 @@
+{% extends "user/layout.html" %}
+
+{% block head_tags %}
+<link rel="stylesheet" href="https://unpkg.com/simplebar@latest/dist/simplebar.css"/>
+<script src="https://unpkg.com/simplebar@latest/dist/simplebar.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .simplebar-scrollbar::before {
+        background-color: #333; /* Scrollbar track color */
+    }
+
+    .simplebar-scrollbar .simplebar-scrollbar-thumb {
+      background-color: #666; /* Scrollbar thumb color */
+    }
+
+    .simplebar-scrollbar.simplebar-visible::before {
+      opacity: 0.7; /* Opacity when scrollbar is visible */
+    }
+
+</style>
+{% endblock %}
+
+{% block content %}
+
+
+{#    CONVERT MODAL#}
+    <div class="modal fade" id="convertModal" tabindex="-1" aria-labelledby="depositLiquidityModalLabel" aria-hidden="true">
+         <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content overflow-hidden">
+               <div class="modal-header pb-0 border-0">
+                  <h1 class="modal-title h4" id="depositLiquidityModalLabel">Convert Tokens</h1>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+               </div>
+               <div class="modal-body undefined">
+                  <form class="vstack gap-6">
+                     <div class="vstack gap-1">
+                        <div class="bg-body-secondary rounded-3 p-4">
+{#       -------------    FROM#}
+                           <div class="d-flex justify-content-between text-xs text-muted"><span class="fw-semibold">From</span> <span>Balance: {{ my_round(wallet[token]['balance']) }} {{ token.upper() }}</span></div>
+                           <div class="d-flex justify-content-between gap-2 mt-4">
+                               <input type="number" class="form-control form-control-flush text-xl fw-bold flex-fill convert-from-amt" placeholder="0.00">
+                               <button onclick="event.preventDefault()" class="btn btn-neutral shadow-none rounded-pill flex-none d-flex align-items-center gap-2 py-2 ps-2 pe-4"><img src="{{ url_for('static', filename='img/tokens/{}.png'.format(token)) }}" class="w-rem-6 h-rem-6" alt="..."> <span class="text-xs fw-semibold text-heading ms-1">{{ token.upper() }}</span></button>
+                           </div>
+                        </div>
+
+                        <div class="position-relative text-center my-n4 overlap-10">
+                           <div class="icon icon-sm icon-shape bg-body shadow-soft-3 rounded-circle text-sm text-body-tertiary"><i class="bi bi-arrow-down-up"></i></div>
+                        </div>
+{#       ----------------  TO#}
+                        <div class="bg-body-secondary rounded-3 p-4">
+                           <div class="d-flex justify-content-between text-xs text-muted"><span class="fw-semibold">To</span> <span class="convert-to-bal">Balance: -</span></div>
+                           <div class="d-flex justify-content-between gap-2 mt-4">
+                               <input type="number" class="form-control form-control-flush text-xl fw-bold flex-fill convert-to-amt" placeholder="0.00">
+
+                               <div class="dropdown">
+                               {% set dropdown = ['btc', 'eth', 'usdttrc', 'trx', 'bnb'] %}
+                              <button class="btn btn-sm btn-neutral rounded-pill shadow-none flex-none d-flex align-items-center gap-2 p-2 convert-to-option-selected" data-bs-toggle="dropdown" aria-expanded="false"><img src="{{ url_for('static', filename='img/tokens/{}.png'.format(token)) }}" class="w-rem-6 h-rem-6 rounded-circle convert-to-option-selected-img" alt="..."> <span class="convert-to-option-selected-text">Select</span> <i class="bi bi-chevron-down text-xs me-5"></i></button>
+
+                              <ul class="dropdown-menu dropdown-menu-end dropdown-menu-sm overflow-y-auto" style="overflow-y: auto !important;">
+                                  {% for tk in dropdown %}
+                                    {% if tk != token %}
+                                        <li><a class="dropdown-item d-flex align-items-center gap-2 convert-to-option" data-token="{{ tk }}" data-bal="{{ my_round(wallet[tk]['balance']) }}"  data-price="{{ my_round(wallet[tk]['price']) }}"  href="#"><img src="{{ url_for('static', filename='img/tokens/{}.png'.format(tk)) }}" class="w-rem-6 h-rem-6 rounded-circle" alt="..."> <span>{{ tk.upper() }}</span></a></li>
+                                    {% endif %}
+                                  {% endfor %}
+
+                              </ul>
+                           </div>
+
+                           </div>
+                        </div>
+                     </div>
+                     <div>
+                        <label class="form-label">Approx Rate</label>
+                        <div class="d-flex flex-wrap gap-1 gap-sm-2">
+                           <div class="w-sm-56 input-group input-group-sm input-group-inline"><input type="search" class="form-control convert-rate-display" placeholder="select token to begin" readonly> <span class="input-group-text"></span></div>
+                            <input class="convert-rate" type="hidden">
+
+                        </div>
+                     </div>
+                     <button type="button" class="btn btn-primary w-100 convert-sbmt" disabled>Convert</button>
+                  </form>
+               </div>
+            </div>
+         </div>
+      </div>
+
+
+
+    {#         WITHDRAW MODAL#}
+      <div class="modal fade" id="withdrawModal" tabindex="-1" aria-labelledby="withdrawModalLabel" aria-hidden="true" style="display: none;">
+         <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content overflow-hidden">
+               <div class="modal-header pb-0 border-0">
+                  <h1 class="modal-title h4" id="topUpModalLabel">Withdraw from {{ token.upper() }}</h1>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+               </div>
+               <div class="modal-body undefined">
+                  <form class="vstack gap-8">
+                     <div>
+                        <label class="form-label">Withdrawal amount</label>
+                        <div class="d-flex justify-content-between p-4 bg-body-tertiary border rounded withdraw-amt-border">
+                           <input type="number" class="form-control form-control-flush text-xl fw-bold w-rem-40 withdraw-amt" placeholder="0.00">
+                           <button onclick="event.preventDefault()" class="btn btn-neutral shadow-none rounded-pill flex-none d-flex align-items-center gap-2 py-2 ps-2 pe-4"><img src="{{ url_for('static', filename='img/tokens/{}.png'.format(token)) }}" class="w-rem-6 h-rem-6" alt="..."> <span class="text-xs fw-semibold text-heading ms-1">{{ token.upper() }}</span></button>
+                        </div>
+                     </div>
+                     <div>
+                        <div class="vstack gap-1">
+                           <label class="form-label">Payment Wallet</label>
+                            <div class="d-flex flex-wrap gap-sm-2">
+                               <div class="w-sm-56 input-group input-group-sm input-group-inline"><input type="text" class="form-control withdraw-addr" placeholder="Enter destination wallet"> <span class="input-group-text"></span></div>
+                            </div>
+                        </div>
+
+                         <div class="vstack gap-1 mt-5">
+                           <label class="form-label">2FA Code</label>
+                            <div class="d-flex flex-wrap gap-sm-2">
+                               <div class="w-sm-56 input-group input-group-sm input-group-inline"><input type="text" class="form-control withdraw-code" placeholder="Enter code from your 2FA App"> <span class="input-group-text"></span></div>
+                            </div>
+                        </div>
+
+                         <div class="vstack gap-2 mt-5">
+                           <div class="text-center"><button type="button" class="btn btn-primary w-100 withdraw-sbmt" disabled>Withdraw Now</button></div>
+                        </div>
+                     </div>
+                  </form>
+               </div>
+            </div>
+         </div>
+      </div>
+
+
+
+    {#         TOPUP MODAL#}
+      <div class="modal fade" id="topupModal" tabindex="-1" aria-labelledby="withdrawModalLabel" aria-hidden="true" style="display: none;">
+         <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content overflow-hidden">
+               <div class="modal-header pb-0 border-0">
+                  <h1 class="modal-title h4" id="topUpModalLabel">New {{ wallet[token]['name'] }} Address</h1>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+               </div>
+               <div class="modal-body undefined">
+                   <div class="alert alert-danger topup-min" role="alert">Attention! Minimum deposit amount is 0.00 {{ token.upper() }}</div>
+                  <div class="card align-items-center" >
+                       <img  src="https://chart.googleapis.com/chart?chs=200x200&chld=L%7C2&cht=qr&chl=" class="card-img-to topup-img" width="50%" alt="...">
+                       <div class="card-body" style="width: 100%">
+                          <span class="d-block text-heading text-base fw-bold">{{ token.upper() }} Wallet</span>
+                          <div class="input-group mb-3">
+                              <input type="text" class="form-control topup-addr" placeholder="..." readonly value="">
+                              <button class="btn btn-outline-secondary topup-copy" type="button" ><i class="bi bi-clipboard"></i></button>
+                            </div>
+                       </div>
+                    </div>
+                   <div class="alert alert-warning" role="alert">Attention! Send only {{ wallet[token]['name'] }} ({{ token.upper() }}) to this address. Sending any other cryptocurrency will lead to its loss!</div>
+               </div>
+            </div>
+         </div>
+      </div>
+
+
+
+
+    <div class="flex-fill overflow-y-lg-auto scrollbar bg-body rounded-top-4 rounded-top-start-lg-4 rounded-top-end-lg-0 border-top border-lg shadow-2">
+   <main class="container-fluid px-3 py-5 p-lg-6 p-xxl-8">
+
+{#       CONVERT AND WITHDRAW BUTTON#}
+      <div class="mb-6 mb-xl-10">
+         <div class="row g-3 align-items-center">
+            <div class="col">
+               <h1 class="ls-tight">{{ wallet[token]['name'] }}</h1>
+            </div>
+            <div class="col">
+               <div class="hstack gap-2 justify-content-end"><button type="button" class="btn btn-sm btn-square btn-neutral rounded-circle d-xxl-none" data-bs-toggle="offcanvas" data-bs-target="#responsiveOffcanvas" aria-controls="responsiveOffcanvas"><i class="bi bi-three-dots"></i></button> <button type="button" class="btn btn-sm btn-neutral d-none d-sm-inline-flex" data-bs-target="#convertModal" data-bs-toggle="modal"><span class="pe-2"><i class="bi bi-arrows-collapse"></i> </span><span>Convert</span></button>
+                   <a data-bs-target="#withdrawModal" data-bs-toggle="modal" href="#0" class="btn d-inline-flex btn-sm btn-dark"><span>Withdraw</span></a></div>
+            </div>
+         </div>
+      </div>
+
+
+
+
+{#       ADDRESSES SIDE MODAL#}
+      <div class="offcanvas rounded-sm-4 offcanvas-end overflow-hidden m-sm-4" tabindex="-1" id="cardDetailsOffcanvas" aria-labelledby="cardDetailsOffcanvasLabel">
+         <div class="offcanvas-header rounded-top-4 bg-light">
+            <h5 class="offcanvas-title" id="cardDetailsOffcanvasLabel">Address details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#cardDetailsOffcanvas" aria-label="Close"></button>
+         </div>
+
+
+         <div class="offcanvas-body d-flex flex-column gap-6">
+
+{#       ADDRESSES SIDE MODAL DEBIT CARD#}
+            <div class="card border-0 gradient-bottom-right start-purple middle-yellow end-cyan">
+               <div class="position-relative p-6 overlap-10">
+                  <div class="row justify-content-between align-items-center">
+                      <div class="col"><img src="{{ url_for('static', filename='img/tokens/{}.png'.format(token)) }}" class="h-rem-6" alt="..."></div>
+                     <div class="col-auto"><span class="badge bg-dark text-success">Active</span></div>
+                  </div>
+                  <div class="mt-8 mb-6">
+                     <span class="surtitle text-dark text-opacity-60">Address</span>
+                     <div class="d-flex gap-4 h3 fw-bold">
+                        <div class="addr-modal-wallet"></div>
+                     </div>
+                  </div>
+                  <div class="row">
+                     <div class="col"><span class="surtitle text-dark text-opacity-60">Label</span> <span class="d-block h6 addr-modal-label"></span></div>
+                     <div class="col"><span class="surtitle text-dark text-opacity-60">Created</span> <span class="d-block h6 addr-modal-time"></span></div>
+                  </div>
+               </div>
+            </div>
+
+
+{#        ADDRESS SIDE MODAL INFLOWS#}
+         <div class="card rounded-top-4">
+                         <div class="input-group input-group-sm input-group-inline w-rem-100 rounded-pill">
+                             <span class="input-group-text rounded-start-pill"><i class="bi bi-search me-2"></i> </span>
+                             <input type="search" class="form-control ps-0 rounded-end-pill" placeholder="Search" aria-label="Search" id="inflows_search">
+                         </div>
+                        <div class="card-body">
+                           <div class="d-flex justify-content-between align-items-center mb-5">
+                              <div>
+                                 <h5>ADDRESS INFLOWS</h5>
+                              </div>
+                           </div>
+                           <div data-simplebar class="vstack addr-modal-inflows" style="height: 300px;">
+
+
+
+                           </div>
+                        </div>
+                     </div>
+
+
+         </div>
+      </div>
+
+
+
+      <div class="row g-3 g-xl-6">
+         <div class="col-xxl-8">
+            <div class="vstack gap-3 gap-xl-6">
+
+{#                TOTAL BALANCE BLOCK#}
+               <div class="d-flex">
+                  <div class="">
+                     <div class="hstack gap-3 mb-1">
+                        <h4 class="fw-semibold">Total Balance</h4>
+                        <a href="#" class="text-muted refresh"><i class="bi bi-arrow-repeat"></i></a>
+                     </div>
+                     <div class="text-2xl text-heading fw-bolder ls-tight">{{ my_round(wallet[token]['balance']) }} {{ token.upper() }}</div>
+                      <span class="text-muted text-sm text-center">{{ "{:,.2f}".format(wallet[token]['price'] * wallet[token]['balance']) }} USD</span>
+                  </div>
+                  <div class="ms-auto align-self-end"><button type="button" class="btn btn-sm btn-neutral topup-btn" data-bs-toggle="modal" data-bs-target="#topupModal"><i class="bi bi-plus-circle"></i> Top up</button></div>
+               </div>
+
+
+{#                DAILY STATS#}
+
+               <div class="row g-3 g-xl-6">
+                  <div class="col-sm-6">
+                     <div class="card">
+                        <div class="card-body">
+                           <div class="d-flex align-items-start gap-4">
+                              <div class="flex-none progress-circle progress-circle-xl progress-circle-primary text-light" aria-valuenow="65" aria-valuemin="0" aria-valuemax="100" role="progressbar" style="--value:100"><span class="text-primary fw-bold today_in_qty">0.0000</span></div>
+                              <div>
+                                 <div class="mb-2"><span class="d-block text-xs text-muted text-opacity-75">Today's Inflow</span> <span class="d-block fw-bold text-heading text-sm today_in_usd">0.00 USD</span></div>
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+                  <div class="col-sm-6">
+                     <div class="card">
+                        <div class="card-body">
+                           <div class="d-flex align-items-start gap-4">
+                              <div class="flex-none progress-circle progress-circle-xl progress-circle-primary text-light" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100" role="progressbar" style="--value:100"><span class="text-primary fw-bold today_out_qty">0.0000</span></div>
+                              <div>
+                                 <div class="mb-2"><span class="d-block text-xs text-muted text-opacity-75">Today's Outflow</span> <span class="d-block fw-bold text-heading text-sm today_out_usd">0.00 USD</span></div>
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+
+
+               <div class="row g-3">
+
+{#                   ALL STATS#}
+                  <div class="col-xl-3">
+                     <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-1 g-3">
+                        <div class="col">
+                           <div class="card">
+                              <div class="p-4">
+                                 <h6 class="text-limit text-muted mb-3">All Inflows</h6>
+                                 <span class="text-sm text-muted text-opacity-90 fw-semibold all_in_usd">$0.00</span> <span class="d-block h3 ls-tight fw-bold all_in_qty">0.000 {{ token.upper() }}</span>
+                                 <p class="mt-1"><span class="text-xs in_perc">0% </span><span class="text-muted text-xs text-opacity-75">vs last week</span></p>
+                              </div>
+                           </div>
+                        </div>
+                        <div class="col">
+                           <div class="card">
+                              <div class="p-4">
+                                 <h6 class="text-limit text-muted mb-3">All Outflows</h6>
+                                 <span class="text-sm text-muted text-opacity-90 fw-semibold all_out_usd">$0.00</span> <span class="d-block h3 ls-tight fw-bold all_out_qty">0.000 {{ token.upper() }}</span>
+                                 <p class="mt-1"><span class="text-xs out_perc">0% </span><span class="text-muted text-xs text-opacity-75">vs last week</span></p>
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+
+
+{#                   CHART#}
+                  <div class="col-xl-9">
+                     <div class="card">
+                        <div class="card-body pb-0">
+                           <div class="d-flex justify-content-between align-items-center">
+                              <div>
+                                 <h5>Performance</h5>
+                              </div>
+                           </div>
+                           <div class="mx-n4">
+                              <canvas id="my-chart"></canvas>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+
+
+
+{#            ADDRESSES#}
+               <div class="card">
+                  <div class="card-body pb-0">
+                     <div class="mb-2 d-flex align-items-center">
+                        <h5>Wallet Addresses</h5>
+                        <div class="ms-auto text-end">
+                            <button class="btn btn-sm btn-neutral topup-btn" data-bs-toggle="modal" data-bs-target="#topupModal"><i class="bi bi-plus me-2 d-none d-sm-inline-block"></i>New Address</button>
+                        </div>
+                     </div>
+                     <div class="hstack gap-2 mt-4 mb-6">
+
+                     </div>
+                     <div class="surtitle mb-2">My Addresses</div>
+                     <div class="vstack all_addr" style="height: 300px; overflow-y: auto" >
+
+                     </div>
+                     <div class="surtitle mt-6">Team addresses</div>
+                     <div class="list-group list-group-flush">
+                        <div class="list-group-item d-flex align-items-center px-0">
+                           <div><span class="d-flex align-items-center justify-content-center w-rem-16 w-md-20 py-3 rounded text-muted text-lg bg-body-secondary"><i class="bi bi-credit-card"></i></span></div>
+                           <div class="ms-3 ms-md-4 flex-fill">
+                              <div class="text-muted text-sm fw-semibold">Team addresses will appear here</div>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+            </div>
+         </div>
+
+
+
+         <div class="col-xxl-4">
+            <div class="offcanvas-xxl m-xxl-0 rounded-sm-4 rounded-xxl-0 offcanvas-end overflow-hidden m-sm-4" tabindex="-1" id="responsiveOffcanvas" aria-labelledby="responsiveOffcanvasLabel">
+               <div class="offcanvas-header rounded-top-4 bg-light">
+                  <h5 class="offcanvas-title" id="responsiveOffcanvasLabel">Quick Stats</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#responsiveOffcanvas" aria-label="Close"></button>
+               </div>
+               <div class="offcanvas-body d-flex flex-column p-3 p-sm-6 p-xxl-0 gap-3 gap-xxl-6">
+                  <div class="vstack gap-6">
+
+
+
+
+{#                   ALL INFLOWS#}
+                     <div class="card rounded-top-4">
+                         <div class="input-group input-group-sm input-group-inline w-rem-100 rounded-pill">
+                             <span class="input-group-text rounded-start-pill"><i class="bi bi-search me-2"></i> </span>
+                             <input type="search" class="form-control ps-0 rounded-end-pill" placeholder="Search" aria-label="Search" id="inflows_search">
+                         </div>
+                        <div class="card-body">
+                           <div class="d-flex justify-content-between align-items-center mb-5">
+                              <div>
+                                 <h5>{{ token.upper() }} INFLOWS</h5>
+                              </div>
+                           </div>
+                           <div data-simplebar class="vstack all_inflows" style="height: 300px;">
+
+
+
+                           </div>
+                        </div>
+                     </div>
+
+
+
+{#                    ALL OUTFLOWS#}
+                     <div class="card rounded-top-4">
+                         <div class="input-group input-group-sm input-group-inline w-rem-100 rounded-pill">
+                             <span class="input-group-text rounded-start-pill"><i class="bi bi-search me-2"></i> </span>
+                             <input type="search" class="form-control ps-0 rounded-end-pill" placeholder="Search" aria-label="Search" id="outflows_search">
+                         </div>
+                        <div class="card-body">
+                           <div class="d-flex justify-content-between align-items-center mb-5">
+                              <div>
+                                 <h5>{{ token.upper() }} OUTFLOWS</h5>
+                              </div>
+                           </div>
+                           <div data-simplebar class="vstack all_outflows" style="height: 300px;">
+
+
+                           </div>
+                        </div>
+                     </div>
+
+
+                  </div>
+               </div>
+            </div>
+         </div>
+      </div>
+   </main>
+</div>
+
+
+
+<script>
+    $(function(){
+
+        var overlay= $("#overlay");
+        var loader= $("#loader");
+        function loadOn(){
+            overlay.css('display', 'block');
+            loader.css('display', 'block');
+        }
+        function loadOff(){
+            overlay.css('display', 'none');
+            loader.css('display', 'none');
+        }
+        function getCSRFToken() {
+            return $('meta[name=csrf-token]').attr('content');
+        }
+
+        function notify(status, msg){
+            if(status === "success"){
+                $.niceToast.success(msg);
+            }else if(status === "error"){
+                $.niceToast.error(msg);
+            }else if(status === "warning"){
+                $.niceToast.warning(msg);
+            }else if(status === "info"){
+                $.niceToast.info(msg);
+            }
+        }
+
+        function number_format(number, dp) {
+            // Truncate to 2 decimal places
+            var truncatedNumber = parseFloat(number).toFixed(dp);
+
+            // Format with commas
+            var formattedNumber = truncatedNumber.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+            return formattedNumber;
+        }
+
+
+        function refresh_page(){
+            loadOn()
+            $.ajax({
+                url: "{{ url_for('user_wallet', token="{}".format(token)) }}",
+                data: {'wallet': 'setup'},
+                dataType: "json",
+                type: "POST",
+                success: function(data){
+                    loadOff()
+                    if(data.status === "success"){
+                        $('.today_in_qty').text(data['stat']['in']['today_qty'])
+                        $('.today_in_usd').text(data['stat']['in']['today_usd']+' USD')
+                        $('.today_out_qty').text(data['stat']['out']['today_qty'])
+                        $('.today_out_usd').text(data['stat']['out']['today_usd']+' USD')
+
+                        $('.all_in_qty').text(data['stat']['in']['all_qty']+ ' {{ token.upper() }}')
+                        $('.all_in_usd').text('$'+data['stat']['in']['all_usd'])
+                        $('.all_out_qty').text(data['stat']['out']['all_qty']+ ' {{ token.upper() }}')
+                        $('.all_out_usd').text('$'+data['stat']['out']['all_usd'])
+
+                        $('.in_perc').text(data['stat']['in']['perc']+'% ').addClass('text-'+data['stat']['in']['class'])
+                        $('.out_perc').text(data['stat']['out']['perc']+'% ').addClass('text-'+data['stat']['out']['class'])
+
+                        {#PLOT CHART#}
+                        var existingChart = Chart.getChart("my-chart");
+                        // Check if the chart exists and destroy it
+                        if (existingChart) {
+                            existingChart.destroy();
+                        }
+                        const in_chart_data = {
+                            labels: data['chart']['in']['x_data'],
+                            datasets: [{
+                                label: 'Inflow',
+                                backgroundColor: 'rgb(204,245,231)',
+                                borderColor: 'rgb(204,245,231)',
+                                data: data['chart']['in']['y_data'],
+                                fill: false
+                            }
+                            ]
+                        };
+
+                        const out_chart_data = {
+                            labels: data['chart']['out']['x_data'],
+                            datasets: [
+                            {
+                                label: 'Outflow',
+                                backgroundColor: 'rgb(255, 99, 132)',
+                                borderColor: 'rgb(255, 99, 132)',
+                                data: data['chart']['out']['y_data'],
+                                fill: false
+                            }
+                            ]
+                        };
+
+                        // Create chart
+                        var ctx = document.getElementById('my-chart').getContext('2d');
+                        var myChart = new Chart(ctx, {
+                          type: 'bar',
+                          data: {
+                              labels: [...in_chart_data.labels, ...out_chart_data.labels],
+                            datasets: [in_chart_data.datasets[0], out_chart_data.datasets[0]]
+                          },
+                          options: {
+                            scales: {
+                              x: {
+                                beginAtZero: true,
+                              },
+                            },
+                          },
+                        });
+
+                        {#Populate HIstory#}
+                        $('.all_inflows').html(data['history']['in'])
+                        $('.all_outflows').html(data['history']['out'])
+
+                        {#Populate Addresses#}
+                        $('.all_addr').html(data['all_addr'])
+
+                    }
+                },
+                error: function(err1, err2){
+                    loadOff()
+                    notify('error', 'An error occurred. Please try again later')
+                },
+                headers: {
+                    'X-CSRFToken': getCSRFToken()
+                },
+            })
+        }
+
+        refresh_page()
+
+        $('.refresh').click(function(){
+            refresh_page()
+        })
+
+        $('#inflows_search').keyup(function(){
+            var key = $(this).val()
+            $('.inflows_card').each(function(){
+                var qty = String($(this).data('qty'))
+                var wallet = $(this).data('wallet')
+                var tx_id = String($(this).data('tx_id'))
+                if(qty.startsWith(key) || wallet.startsWith(key) || tx_id.startsWith(key)){
+                    $(this).show()
+                }else{
+                    $(this).hide()
+                }
+            })
+        })
+
+        $('#outflows_search').keyup(function(){
+            var key = $(this).val()
+            $('.outflows_card').each(function(){
+                var qty = String($(this).data('qty'))
+                var wallet = $(this).data('wallet')
+                var tx_id = String($(this).data('tx_id'))
+                if(qty.startsWith(key) || wallet.startsWith(key) || tx_id.startsWith(key)){
+                    $(this).show()
+                }else{
+                    $(this).hide()
+                }
+            })
+        })
+
+        $('body').on('click', '.addr_card', function(){
+            var wallet = $(this).data('wallet')
+            var wallet2 = $(this).data('wallet2')
+            var time = $(this).data('time')
+            var label = $(this).data('label')
+            var last_used = $(this).data('last_used')
+            $('.addr-modal-label').text(label)
+            $('.addr-modal-time').text(time)
+            $('.addr-modal-wallet').text(wallet2)
+            loadOn()
+            $.ajax({
+                url: "{{ url_for('user_wallet', token="{}".format(token)) }}",
+                dataType: "json",
+                type: "POST",
+                data: {'wallet': wallet},
+                success: function(data){
+                    loadOff()
+                    if(data['addr_inflows']['status'] === "warning"){
+                        notify("warning", "No transactions yet on this address")
+                    }
+                    $('.addr-modal-inflows').html(data['addr_inflows']['inflows'])
+                },
+                error: function(err1, err2){
+                    loadOff()
+                    notify('error', 'An error occurred. Please try again later')
+                },
+                headers: {
+                    'X-CSRFToken': getCSRFToken()
+                },
+            })
+        })
+
+        $('.convert-to-option').click(function (){
+            var to_token = $(this).data('token')
+            var from_token = "{{ token }}"
+            var bal = $(this).data('bal')
+            var to_price = Number($(this).data('price'))
+            var from_price = Number("{{ wallet[token]['price'] }}")
+            $('.convert-to-option-selected').data({'token': to_token, 'price': to_price})
+            $('.convert-to-option-selected-img').attr('src', '{{ url_for('static', filename='img/tokens/') }}'+to_token+'.png')
+            $('.convert-to-option-selected-text').text(to_token.toUpperCase())
+            $('.convert-to-bal').text('Balance: '+bal+' '+to_token.toUpperCase())
+
+            var rate = from_price/to_price
+            $('.convert-rate').val(rate.toFixed(4))
+            $('.convert-rate-display').val('1 '+from_token.toUpperCase()+' = '+rate.toFixed(4)+' '+to_token.toUpperCase())
+            $('.convert-from-amt').val('')
+            $('.convert-to-amt').val('')
+        })
+
+        $('.convert-from-amt').keyup(function(){
+            var from_amt = $('.convert-from-amt').val()
+            var rate = $('.convert-rate').val()
+            var from_bal = Number("{{ wallet[token]['balance'] }}")
+            $('.convert-to-amt').val((rate*from_amt).toFixed(4))
+            if(from_amt > from_bal || from_amt === "" || from_amt == 0){
+                $('.convert-sbmt').attr('disabled', true)
+            }else{
+                $('.convert-sbmt').attr('disabled', false)
+            }
+
+        })
+
+        $('.convert-to-amt').keyup(function(){
+            var to_amt = $('.convert-to-amt').val()
+            var rate = $('.convert-rate').val()
+            var from_bal = Number("{{ wallet[token]['balance'] }}")
+            $('.convert-from-amt').val((to_amt/rate).toFixed(4))
+            if((to_amt/rate) > from_bal || (to_amt/rate) == 0){
+                $('.convert-sbmt').attr('disabled', true)
+            }else{
+                $('.convert-sbmt').attr('disabled', false)
+            }
+        })
+
+        $('.convert-sbmt').click(function(){
+            var from_amt = $('.convert-from-amt').val()
+            var to_token = $('.convert-to-option-selected').data('token')
+            var to_amt = $('.convert-to-amt').val()
+            if(from_amt === "" || to_amt === ""){
+                notify('warning', 'Check selections')
+            }else{
+                loadOn()
+                $.ajax({
+                url: "{{ url_for('user_wallet', token="{}".format(token)) }}",
+                dataType: "json",
+                type: "PUT",
+                data: {
+                    'to_token': to_token,
+                    'from_amt': from_amt,
+                    'action': 'convert'
+                },
+                success: function(data){
+                    loadOff()
+                    notify(data.status, data.msg)
+                    if(data.status === "success"){
+                        refresh_page()
+                    }
+                },
+                error: function(err1, err2){
+                    loadOff()
+                    notify('error', 'An error occurred. Please try again later')
+                },
+                headers: {
+                    'X-CSRFToken': getCSRFToken()
+                },
+            })
+            }
+        })
+
+
+        $('.withdraw-amt').keyup(function (){
+            var amt = Number($(this).val())
+            var fee = Number("{{ wallet[token]['fee']['send'] }}") + (0.4/100)*amt
+            var bal = Number("{{ wallet[token]['balance'] }}")
+            if(amt > 0){
+                var total = amt+fee
+                $('.withdraw-sbmt').text('Withdraw total '+total.toFixed(4)+' {{ token.upper() }}').attr('disabled', false)
+                if(total > bal){
+                    $('.withdraw-amt-border').addClass('border-danger')
+                    $('.withdraw-sbmt').attr('disabled', true)
+                }else{
+                    $('.withdraw-amt-border').removeClass('border-danger')
+                    $('.withdraw-sbmt').attr('disabled', false)
+                }
+            }else{
+                $('.withdraw-sbmt').text('Withdraw Now').attr('disabled', true)
+                $('.withdraw-amt-border').removeClass('border-danger')
+            }
+
+        })
+
+        $('.withdraw-sbmt').click(function(){
+            var qty = $('.withdraw-amt').val()
+            var addr = $('.withdraw-addr').val()
+            var code = $('.withdraw-code').val()
+            if(qty === "" || qty === 0 || addr === "" || code === ""){
+                notify('warning', 'All field is required')
+            }else{
+                loadOn()
+                $.ajax({
+                url: "{{ url_for('user_wallet', token="{}".format(token)) }}",
+                dataType: "json",
+                type: "PUT",
+                data: {
+                    'qty': qty,
+                    'addr': addr,
+                    'code': code,
+                    'action': 'withdraw'
+                },
+                success: function(data){
+                    loadOff()
+                    notify(data.status, data.msg)
+                    if(data.status === "success"){
+                        refresh_page()
+                    }
+                },
+                error: function(err1, err2){
+                    loadOff()
+                    notify('error', 'An error occurred. Please try again later')
+                },
+                headers: {
+                    'X-CSRFToken': getCSRFToken()
+                },
+            })
+            }
+        })
+
+
+        $("body").on('click', '.topup-copy', function(){
+            event.preventDefault();
+            var item= $(this).data('item')
+
+            navigator.clipboard.writeText(item).then(function () {
+                notify('info', 'copied')
+            }, function () {
+                notify('info', 'An error occured. Please copy manually')
+            });
+        })
+
+        $('.topup-btn').click(function(){
+            loadOn()
+            $.ajax({
+                url: "{{ url_for('user_wallet', token="{}".format(token)) }}",
+                dataType: "json",
+                type: "PUT",
+                data: {
+                    'action': 'create_address'
+                },
+                success: function(data){
+                    loadOff()
+                    notify(data.status, data.msg)
+                    if(data.status === "success"){
+                        $('.topup-addr').val(data.addr)
+                        $('.topup-copy').data('item', data.addr)
+                        $('.topup-img').attr('src', 'https://chart.googleapis.com/chart?chs=200x200&chld=L%7C2&cht=qr&chl='+data.addr)
+                        $('.topup-min').text('Attention! Minimum deposit amount is '+data.min_deposit+' {{ token.upper() }}')
+                    }
+                },
+                error: function(err1, err2){
+                    loadOff()
+                    notify('error', 'An error occurred. Please try again later')
+                },
+                headers: {
+                    'X-CSRFToken': getCSRFToken()
+                },
+            })
+        })
+
+    })
+</script>
+
+{% endblock %}
+
+

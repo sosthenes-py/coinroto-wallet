@@ -1,0 +1,238 @@
+{% extends "user/layout.html" %}
+
+{% block head_tags %}
+{% endblock %}
+
+{% block content %}
+
+
+    {#         ADD MODAL#}
+      <div class="modal fade" id="addModal" tabindex="-1" aria-labelledby="withdrawModalLabel" aria-hidden="true" style="display: none;">
+         <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content overflow-hidden">
+               <div class="modal-header pb-0 border-0">
+                  <h1 class="modal-title h4" id="topUpModalLabel">Add method for auto payout</h1>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+               </div>
+               <div class="modal-body undefined">
+                  <form class="vstack gap-8">
+                     <div>
+                        <div class="vstack gap-1">
+                           <label for="add-token" class="form-label">Select Currency</label>
+                            <div class="d-flex flex-wrap gap-sm-2">
+                               <div class="w-sm-56 input-group input-group-sm input-group-inline">
+                               <select id="add-token" class="form-control">
+                                    <option value="">Select here</option>
+                                   {% for tk, detail in wallet.items() %}
+                                        <option data-min="{{ minmax[tk]['min'] }}" data-max="{{ minmax[tk]['max'] }}" value="{{ tk }}">{{ detail['name'] }} - {{ tk.upper() }}</option>
+                                   {% endfor %}
+                               </select>
+                               </div>
+                            </div>
+                        </div>
+
+                     <div class="vstack gap-1 mt-5">
+                           <label for="add-wallet" class="form-label">Wallet Address</label>
+                            <div class="d-flex flex-wrap gap-sm-2">
+                               <div class="w-sm-56 input-group input-group-sm input-group-inline"><input type="text" id="add-wallet" class="form-control" placeholder="Destination wallet address"> </div>
+                            </div>
+                        </div>
+
+                         <div class="vstack gap-1 mt-5">
+                           <label for="add-min" class="form-label">Minimum Threshold</label>
+                            <div class="d-flex flex-wrap gap-sm-2">
+                               <div class="w-sm-56 input-group input-group-sm input-group-inline"><input type="number" id="add-min" class="form-control" placeholder="Minimum amount to withdraw"> <span class="input-group-text" id="add-minmax">Min: 0.0 || Max: 0.0</span></div>
+                            </div>
+                        </div>
+
+                     <div class="vstack gap-1 mt-5">
+                           <label for="add-rest" class="form-label">Rest Balance</label>
+                            <div class="d-flex flex-wrap gap-sm-2">
+                               <div class="w-sm-56 input-group input-group-sm input-group-inline"><input type="number" id="add-rest" class="form-control" value="0.0" placeholder="Amount to remain after payout"> </div>
+                            </div>
+                        </div>
+
+                     <div class="vstack gap-1 mt-5">
+                           <label for="add-code" class="form-label">2FA Code</label>
+                            <div class="d-flex flex-wrap gap-sm-2">
+                               <div class="w-sm-56 input-group input-group-sm input-group-inline"><input type="number" id="add-code" class="form-control" value="" placeholder="Code from your 2FA authenticator"> </div>
+                            </div>
+                        </div>
+
+                         <div class="vstack gap-2 mt-5">
+                           <div class="text-center"><button type="button" class="btn btn-primary w-100" id="add-sbmt">Add Method</button></div>
+                        </div>
+                     </div>
+                  </form>
+               </div>
+            </div>
+         </div>
+      </div>
+
+
+
+<div class="flex-fill overflow-y-lg-auto scrollbar bg-body rounded-top-4 rounded-top-start-lg-4 rounded-top-end-lg-0 border-top border-lg shadow-2">
+   <main class="container-fluid p-0">
+      <div class="px-6 px-lg-7 pt-8 border-bottom">
+         <div class="d-flex align-items-center mb-5">
+            <h1>Auto Payout</h1>
+            <div class="hstack gap-2 ms-auto"> <a data-bs-target="#addModal" data-bs-toggle="modal" href="#0" class="btn btn-sm btn-primary"><i class="bi bi-plus-lg me-2"></i> Add method</a></div>
+         </div>
+      </div>
+      <div class="table-responsive">
+         <table class="table table-hover table-striped table-sm table-nowrap">
+            <thead>
+               <tr>
+                  <th scope="col">Currency</th>
+                  <th scope="col">Min. Threshold</th>
+                  <th scope="col">Rest Bal</th>
+                  <th scope="col">Wallet</th>
+                   <th scope="col">Created</th>
+                   <th scope="col">Action</th>
+               </tr>
+            </thead>
+            <tbody id="body">
+
+            </tbody>
+         </table>
+      </div>
+   </main>
+</div>
+
+
+
+<script>
+    $(function(){
+
+        var overlay= $("#overlay");
+        var loader= $("#loader");
+        function loadOn(){
+            overlay.css('display', 'block');
+            loader.css('display', 'block');
+        }
+        function loadOff(){
+            overlay.css('display', 'none');
+            loader.css('display', 'none');
+        }
+        function getCSRFToken() {
+            return $('meta[name=csrf-token]').attr('content');
+        }
+
+        function notify(status, msg){
+            if(status === "success"){
+                $.niceToast.success(msg);
+            }else if(status === "error"){
+                $.niceToast.error(msg);
+            }else if(status === "warning"){
+                $.niceToast.warning(msg);
+            }else if(status === "info"){
+                $.niceToast.info(msg);
+            }
+        }
+
+
+        function refresh_page(){
+            loadOn()
+            $.ajax({
+                url: "{{ url_for('settings_auto_payout') }}",
+                data: {'action': 'retrieve'},
+                dataType: "json",
+                type: "POST",
+                success: function(data){
+                    loadOff()
+                    if(data.status === "success"){
+                        $('#body').html(data.body)
+                        $('#add-min').val('')
+                        $('#add-wallet').val('')
+                        $('#add-rest').val('0.0')
+                        $('#add-token').val('').select()
+                        $('#add-code').val('')
+                    }
+                },
+                error: function(err1, err2){
+                    loadOff()
+                    notify('error', 'An error occurred. Please try again later')
+                },
+                headers: {
+                    'X-CSRFToken': getCSRFToken()
+                },
+            })
+        }
+
+        refresh_page()
+
+        $('.refresh').click(function(){
+            refresh_page()
+        })
+
+        $('#add-token').change(function (){
+            var selected = $(this).find(':selected')
+            var min = selected.data('min')
+            var max = selected.data('max')
+            var tk = selected.val()
+            $('#add-minmax').text('Min: '+min+' '+tk.toUpperCase()+' || Max: '+max+' '+tk.toUpperCase())
+        })
+
+        $('#add-sbmt').click(function (){
+            var token = $('#add-token').val()
+            var min = $("#add-min").val()
+            var rest = $('#add-rest').val()
+            var wallet = $('#add-wallet').val()
+            var code = $('#add-code').val()
+            if(min === "" || min === 0 || wallet === "" || token === "" || code === ""){
+                notify('warning', 'All fields are required')
+            }else{
+                loadOn()
+                $.ajax({
+                    url: "{{ url_for('settings_auto_payout') }}",
+                    data: {'action': 'add', 'token': token, 'min': min, 'rest': rest, 'wallet': wallet, 'code': code},
+                    dataType: "json",
+                    type: "POST",
+                    success: function(data){
+                        loadOff()
+                        notify(data.status, data.msg)
+                        if(data.status === "success"){
+                            refresh_page()
+                        }
+                    },
+                    error: function(err1, err2){
+                        loadOff()
+                        notify('error', 'An error occurred. Please try again later')
+                    },
+                    headers: {
+                        'X-CSRFToken': getCSRFToken()
+                    },
+                })
+            }
+        })
+
+        $('body').on('click', '.trash', function(){
+            var id = $(this).data('id')
+            loadOn()
+                $.ajax({
+                    url: "{{ url_for('settings_auto_payout') }}",
+                    data: {'action': 'trash', 'id': id},
+                    dataType: "json",
+                    type: "POST",
+                    success: function(data){
+                        loadOff()
+                        notify(data.status, data.msg)
+                        if(data.status === "success"){
+                            refresh_page()
+                        }
+                    },
+                    error: function(err1, err2){
+                        loadOff()
+                        notify('error', 'An error occurred. Please try again later')
+                    },
+                    headers: {
+                        'X-CSRFToken': getCSRFToken()
+                    },
+                })
+        })
+
+    })
+</script>
+
+{% endblock %}
+

@@ -1,0 +1,409 @@
+{% extends "user/layout.html" %}
+
+{% block head_tags %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+
+{#    EXCHANGE MODAL#}
+
+
+    <div class="flex-fill overflow-y-lg-auto scrollbar bg-body rounded-top-4 rounded-top-start-lg-4 rounded-top-end-lg-0 border-top border-lg shadow-2">
+               <main class="container-fluid px-3 py-5 p-lg-6 p-xxl-8">
+                  <div class="mb-6 mb-xl-10">
+                     <div class="row g-3 align-items-center">
+                        <div class="col">
+                           <h1 class="ls-tight">Dashboard</h1>
+                        </div>
+                        <div class="col">
+                           <div class="hstack gap-2 justify-content-end"><button type="button" class="btn btn-sm btn-square btn-neutral rounded-circle d-xxl-none" data-bs-toggle="offcanvas" data-bs-target="#responsiveOffcanvas" aria-controls="responsiveOffcanvas"><i class="bi bi-three-dots"></i></button>
+                               <button type="button" class="btn btn-sm btn-neutral d-none d-sm-inline-flex" data-bs-target="#convertModal" data-bs-toggle="modal">
+                                   <span class="pe-2"><i class="bi bi-arrows-collapse"></i> </span><span>Convert</span>
+                               </button>
+                               <a data-bs-target="#withdrawModal" data-bs-toggle="modal" href="#0" class="btn d-inline-flex btn-sm btn-dark"><span>Withdraw</span></a>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+
+
+{#                   SELECT TOKEN FOR WATCHLIST MODAL#}
+                  <div class="modal fade" id="addWLModal" tabindex="-1" aria-labelledby="cryptoModalLabel" aria-hidden="true" >
+                     <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content overflow-hidden">
+                           <div class="modal-header pb-0 border-0">
+                              <h1 class="modal-title h4" id="cryptoModalLabel">Add tokens to your watchlist</h1>
+                              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                           </div>
+                           <div class="modal-body p-0" style="max-height: 80vh; overflow-y: auto">
+                              <div class="px-6 py-5 border-bottom"><input type="text" class="form-control wl-search" placeholder="Search token" aria-label="Search" ></div>
+                              <div class="p-2">
+                                 <div class="vstack">
+                                     {% for token, detail in wallet.items() %}
+                                        <div style="display: flex" class="position-relative gap-3 p-4 rounded bg-body-secondary-hover wl-token" data-token="{{ token }}">
+                                           <div class="icon flex-none"><img src="{{ url_for('static', filename='img/tokens/{}.png'.format(token)) }}" class="w-rem-10 h-rem-10" alt="..."></div>
+                                           <div class="d-flex flex-fill">
+                                              <div class=""><a href="#" class="stretched-link text-heading fw-bold">{{ token.upper() }}</a> <span class="d-block text-muted text-sm">{{ detail['name'] }}</span></div>
+                                              <div class="ms-auto fw-bold text-heading">{{ my_round(detail['balance']) }}</div>
+                                           </div>
+                                        </div>
+                                     {% endfor %}
+
+                                 </div>
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+
+
+
+                  <div class="row g-3 g-xxl-6">
+                     <div class="col-xxl-8">
+                        <div class="vstack gap-3 gap-md-6">
+
+{#                      LATEST 3 WATCHLIST TOKENS#}
+
+                           <div class="row g-3 wl-block" >
+
+
+                               {% for wl in current_user.watch_list[-3:] %}
+                                    <div class="col-md col-sm-6">
+                                         <div class="card border-primary-hover">
+                                            <div class="card-body p-4">
+                                               <div class="d-flex align-items-center gap-2"><img src="{{ url_for('static', filename='img/tokens/{}.png'.format(wl.token)) }}" class="w-rem-5 flex-none" alt="..."> <a href="{{ url_for('user_wallet', token=wl.token) }}" class="h6 stretched-link">{{ wl.token.upper() }}</a></div>
+                                               <div class="text-sm fw-semibold mt-3">... {{ wl.token.upper() }}</div>
+                                               <div class="d-flex align-items-center gap-2 mt-1 text-xs"><span class="badge badge-xs bg-success"><i class="bi bi-arrow-up-right"></i> </span><span>...%</span></div>
+                                            </div>
+                                         </div>
+                                      </div>
+                               {% endfor %}
+
+
+
+                              <div class="col-md-1 d-none d-md-block">
+                                 <div class="card h-md-100 d-flex flex-column align-items-center justify-content-center py-4 bg-body-secondary bg-opacity-75 bg-opacity-100-hover"><a href="#addWLModal" class="stretched-link text-body-secondary" data-bs-toggle="modal"><i class="bi bi-plus-lg"></i></a></div>
+                              </div>
+                           </div>
+
+{#                        CHART#}
+                           <div class="card">
+                              <div class="card-body pb-0">
+                                 <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                       <h5>Income chart</h5>
+                                    </div>
+                                    <div class="hstack align-items-center"><a href="#" class="text-muted refresh"><i class="bi bi-arrow-repeat"></i></a></div>
+                                 </div>
+                                 <div class="mx-n4">
+                                    <canvas id="my-chart"></canvas>
+                                 </div>
+                              </div>
+                           </div>
+
+
+
+{#                        TRANSACTION HISTORY#}
+                           <div class="card">
+                              <div class="card-body pb-0">
+                                 <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                       <h5>Latest Transaction History</h5>
+                                    </div>
+                                    <div class="hstack align-items-center"><a href="#" class="text-muted refresh"><i class="bi bi-arrow-repeat"></i></a></div>
+                                 </div>
+                                 <div class="list-group list-group-flush tx_history">
+
+                                    <div class="list-group-item d-flex align-items-center justify-content-between gap-6">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="d-none d-md-block text-sm">Nothing here yet...</div>
+                                        </div>
+                                    </div>
+
+                                 </div>
+                              </div>
+                           </div>
+
+                        </div>
+                     </div>
+
+
+
+                     <div class="col-xxl-4">
+                        <div class="offcanvas-xxl m-xxl-0 rounded-sm-4 rounded-xxl-0 offcanvas-end overflow-hidden m-sm-4" tabindex="-1" id="responsiveOffcanvas" aria-labelledby="responsiveOffcanvasLabel">
+                           <div class="offcanvas-header rounded-top-4 bg-light">
+                              <h5 class="offcanvas-title" id="responsiveOffcanvasLabel">Quick Stats</h5>
+                              <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#responsiveOffcanvas" aria-label="Close"></button>
+                           </div>
+                           <div class="offcanvas-body d-flex flex-column p-3 p-sm-6 p-xxl-0 gap-3 gap-xxl-6">
+                              <div class="vstack gap-6 gap-xxl-6">
+
+{#                       BALANCE CARD --------------#}
+
+                                 <div class="card border-0 border-xxl">
+                                    <div class="card-body d-flex flex-column p-0 p-xxl-6">
+                                       <div class="d-flex justify-content-between align-items-center mb-3">
+                                          <div>
+                                             <h5>Balance</h5>
+                                          </div>
+                                          <div><span class="text-heading fw-bold total_perc"><i class="bi bi-arrow-up me-2"></i>0.0%</span></div>
+                                       </div>
+                                        <div class="text-2xl fw-bolder text-heading ls-tight"><span class="total_balance">0.00</span> USD</div>
+                                       <div class="d-flex align-items-center justify-content-between mt-8">
+                                          <div class="">
+                                             <div class="d-flex gap-3 align-items-center">
+                                                <div class="icon icon-sm icon-shape text-sm rounded-circle bg-dark text-success"><i class="bi bi-arrow-down"></i></div>
+                                                <span class="h6 fw-semibold text-muted">Income</span>
+                                             </div>
+                                             <div class="fw-bold text-heading mt-3"><span class="total_income">0.00</span> USD</div>
+                                          </div>
+                                          <span class="vr bg-dark bg-opacity-10"></span>
+                                          <div class="">
+                                             <div class="d-flex gap-3 align-items-center">
+                                                <div class="icon icon-sm icon-shape text-sm rounded-circle bg-dark text-danger"><i class="bi bi-arrow-up"></i></div>
+                                                <span class="h6 fw-semibold text-muted">Expenses</span>
+                                             </div>
+                                             <div class="fw-bold text-heading mt-3"><span class="total_expense">0.00</span> USD</div>
+                                          </div>
+                                       </div>
+                                    </div>
+                                 </div>
+
+
+                                 <hr class="my-0 d-xxl-none">
+
+
+{#                        FEES DISCOUNT      #}
+                                 <div class="card border-0 border-xxl">
+                                    <div class="card-body p-0 p-xxl-6">
+                                       <div class="d-flex justify-content-between align-items-center mb-5">
+                                          <div>
+                                             <h5>Enjoy Fees Discount</h5>
+                                          </div>
+                                          <div class="hstack align-items-center"><a href="#feesInfoModal" class="text-muted" data-bs-toggle="modal"><i class="bi bi-info-circle"></i></a></div>
+                                       </div>
+                                       <div class="vstack gap-1 overflow-y-auto fees_discount" style="height: 30vh">
+
+
+
+                                       </div>
+                                    </div>
+                                 </div>
+
+
+                                 <hr class="my-0 d-xxl-none">
+
+
+{#                        ALL 6 WATCHLIST TOKENS#}
+                                 <div class="card border-0 border-xxl">
+                                    <div class="card-body p-0 p-xxl-6">
+                                       <div class="d-flex justify-content-between align-items-center mb-4">
+                                          <div>
+                                             <h5>All Watchlist</h5>
+                                          </div>
+                                       </div>
+
+                                       <div class="d-flex flex-nowrap gap-2 scrollable-x wl-block2">
+
+                                           {% for wl in current_user.watch_list %}
+                                                <div class="flex-none">
+                                                     <div class="rounded-3 p-3 p-sm-4 bg-body-secondary">
+                                                        <div class="d-flex align-items-center gap-2">
+                                                           <img src="{{ url_for('static', filename='img/tokens/{}.png'.format(wl.token)) }}" class="w-rem-5" alt="...">
+                                                           <h6 class="text-sm fw-semibold">... {{ wl.token.upper() }}</h6>
+                                                        </div>
+                                                        <div class="mt-4 fw-bold text-heading">...</div>
+                                                     </div>
+                                                  </div>
+                                           {% endfor %}
+
+                                       </div>
+
+                                       <div class="text-center mt-4"><a href="#addWLModal" class="link-primary fw-semibold text-sm" data-bs-toggle="modal">Add Token</a></div>
+                                    </div>
+                                 </div>
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+
+
+
+{#                   FEES DISCOUNT INFO MODAL#}
+                  <div class="modal fade" id="feesInfoModal" tabindex="-1" aria-labelledby="cryptoModalLabel" aria-hidden="true" >
+                     <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content overflow-hidden">
+                           <div class="modal-header pb-0 border-0">
+                              <h1 class="modal-title h4" id="cryptoModalLabel">About Our Fees Discount</h1>
+                              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                           </div>
+                           <div class="modal-body p-0" style="max-height: 80vh; overflow-y: auto">
+
+                              <div class="p-4">
+                                 <p>You enjoy up to 25% discount on the fees associated when you carry out transactions on COINROTO.</p>
+                                  <p>In order to enjoy this discount, you should receive a total inflow (for each token) up to 50,000 in USD</p>
+                                  <p>This discount will be applied to each and every token that has received this inflow threshold</p>
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+
+
+               </main>
+            </div>
+
+<script>
+    $(function(){
+
+        var overlay= $("#overlay");
+        var loader= $("#loader");
+        function loadOn(){
+            overlay.css('display', 'block');
+            loader.css('display', 'block');
+        }
+        function loadOff(){
+            overlay.css('display', 'none');
+            loader.css('display', 'none');
+        }
+        function getCSRFToken() {
+            return $('meta[name=csrf-token]').attr('content');
+        }
+
+        function notify(status, msg){
+            if(status === "success"){
+                $.niceToast.success(msg);
+            }else if(status === "error"){
+                $.niceToast.error(msg);
+            }else if(status === "warning"){
+                $.niceToast.warning(msg);
+            }else if(status === "info"){
+                $.niceToast.info(msg);
+            }
+        }
+
+        function number_format(number, dp) {
+            // Truncate to 2 decimal places
+            var truncatedNumber = parseFloat(number).toFixed(dp);
+
+            // Format with commas
+            var formattedNumber = truncatedNumber.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+            return formattedNumber;
+        }
+
+
+        function refresh_page(){
+            loadOn()
+            $.ajax({
+                url: "{{ url_for('user_dashboard') }}",
+                data: {'dashboard': 'setup'},
+                dataType: "json",
+                type: "POST",
+                success: function(data){
+                    loadOff()
+                    if(data.status === "success"){
+                        $('.wl-block').html(data.wl_block)
+                        $('.wl-block2').html(data.wl_block2)
+                        $('.total_balance').text(number_format(data.total_balance, 2))
+                        $('.total_income').text(number_format(data.total_income, 2))
+                        $('.total_expense').text(number_format(data.total_expense, 2))
+                        if(data.total_perc < 0){
+                            $('.total_perc').html('<i class="bi bi-arrow-down me-2"></i>'+number_format(Math.abs(data.total_perc), 1)+'%')
+                        }else{
+                            $('.total_perc').html('<i class="bi bi-arrow-up me-2"></i>'+number_format(data.total_perc, 1)+'%')
+                        }
+
+                        {#PLOT GRAPH#}
+                        var existingChart = Chart.getChart("my-chart");
+                        // Check if the chart exists and destroy it
+                        if (existingChart) {
+                            existingChart.destroy();
+                        }
+
+                        const labels = data['graph']['x_data'];
+                        const dataa = {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Inflow',
+                                backgroundColor: 'rgb(255, 99, 132)',
+                                borderColor: 'rgb(255, 99, 132)',
+                                data: data['graph']['y_data'],
+                            }]
+                        };
+                        const configg = {
+                            type: 'line',
+                            data: dataa,
+
+                        };
+                        const myChart = new Chart(
+                            document.getElementById('my-chart'),
+                            configg
+                        );
+
+
+
+                        {#TRANSACTION HISTORY#}
+                        $('.tx_history').html(data.tx_history)
+
+                        {#FEES DISCOUNT#}
+                        $('.fees_discount').html(data.fees_discount)
+                    }
+                },
+                error: function(err1, err2){
+                    loadOff()
+                    notify('error', 'An error occurred. Please try again later')
+                },
+                headers: {
+                    'X-CSRFToken': getCSRFToken()
+                },
+            })
+        }
+        refresh_page()
+
+        $('.refresh').click(function(){
+            refresh_page()
+        })
+
+        $('.wl-search').keyup(function(){
+            var key = $(this).val().toLowerCase()
+            $('.wl-token').each(function(){
+                if($(this).data('token').toLowerCase().startsWith(key)){
+                    $(this).show();
+                }else{
+                    $(this).hide()
+                }
+            })
+        })
+
+        $('.wl-token').click(function(){
+            var token = $(this).data('token')
+            loadOn()
+            $.ajax({
+                url: "{{ url_for('add_to_wl') }}",
+                data: {'token': token},
+                dataType: "json",
+                type: "POST",
+                success: function(data){
+                    loadOff()
+                    notify(data.status, data.msg)
+                    if(data.status === "success"){
+                        refresh_page()
+                    }
+                },
+                error: function(err1, err2){
+                    loadOff()
+                    notify('error', 'An error occurred. Please try again later')
+                },
+                headers: {
+                    'X-CSRFToken': getCSRFToken()
+                },
+            })
+        })
+
+    })
+</script>
+
+{% endblock %}

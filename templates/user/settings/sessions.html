@@ -1,0 +1,172 @@
+{% extends "user/layout.html" %}
+
+{% block head_tags %}
+{% endblock %}
+
+{% block content %}
+
+<div class="flex-fill overflow-y-lg-auto scrollbar bg-body rounded-top-4 rounded-top-start-lg-4 rounded-top-end-lg-0 border-top border-lg shadow-2">
+   <main class="container-fluid p-0">
+      <div class="px-6 px-lg-7 pt-8 border-bottom">
+         <div class="d-flex align-items-center">
+            <h1>Sessions</h1>
+         </div>
+      </div>
+      <div class="d-flex gap-2 scrollable-x py-3 px-7 border-bottom">
+        <h5>Active Sessions</h5>
+      </div>
+      <div class="table-responsive">
+         <table class="table table-hover table-striped table-sm table-nowrap">
+            <thead>
+               <tr>
+                  <th scope="col">
+                     <div class="d-flex align-items-center gap-2 ps-1">
+                        <span>Device</span>
+                     </div>
+                  </th>
+                  <th scope="col">Current</th>
+                  <th scope="col">IP</th>
+                   <th scope="col">Started</th>
+                  <th scope="col">Action</th>
+               </tr>
+            </thead>
+            <tbody>
+
+            {% for sess in current_user.sessions %}
+                {% if 'Mobile' in sess.device %}
+                    {% set device = 'Mobile' %}
+                    {% set icon = 'phone' %}
+                {% else %}
+                    {% set device = 'Desktop' %}
+                    {% set icon = 'display' %}
+                {% endif %}
+                {% set current = '' %}
+                {% if sess.token == session.get('session_id') %}
+                    {% set current = 'This device' %}
+                {% endif %}
+               <tr>
+                  <td>
+                     <div class="d-flex align-items-center gap-3 ps-1">
+                        <div class="d-xl-inline-flex icon icon-shape w-rem-8 h-rem-8 rounded-circle text-sm bg-secondary bg-opacity-25 text-secondary"><i class="bi bi-{{ icon }}-fill"></i></div>
+                        <div><span class="d-block text-heading fw-bold">{{ device }}</span></div>
+                     </div>
+                  </td>
+                  <td class="text-success fw-bold">{{ current }}</td>
+                  <td>{{ sess.ip }}</td>
+                  <td>{{ format_date(sess.time, '%d %b %Y', 86400) }}</td>
+                  <td><button type="button" class="btn btn-sm btn-square btn-danger w-rem-6 h-rem-6 trash" data-id="{{ sess.id }}"><i class="bi bi-trash"></i></button></td>
+               </tr>
+
+            {% endfor %}
+
+
+            </tbody>
+         </table>
+      </div>
+
+   <div class="d-flex align-items-end justify-content-between mt-5 ms-4 me-4">
+           <div>
+              <h4 class="fw-semibold mb-1">Terminate All</h4>
+              <p class="text-sm text-muted">Terminate all sessions asides current session?</p>
+           </div>
+           <div class="d-md-flex gap-2"><button type="submit" class="btn btn-sm btn-danger trash" data-id="0">Proceed</button></div>
+        </div>
+
+   </main>
+</div>
+
+
+
+<script>
+    $(function(){
+
+        var overlay= $("#overlay");
+        var loader= $("#loader");
+        function loadOn(){
+            overlay.css('display', 'block');
+            loader.css('display', 'block');
+        }
+        function loadOff(){
+            overlay.css('display', 'none');
+            loader.css('display', 'none');
+        }
+        function getCSRFToken() {
+            return $('meta[name=csrf-token]').attr('content');
+        }
+
+        function notify(status, msg){
+            if(status === "success"){
+                $.niceToast.success(msg);
+            }else if(status === "error"){
+                $.niceToast.error(msg);
+            }else if(status === "warning"){
+                $.niceToast.warning(msg);
+            }else if(status === "info"){
+                $.niceToast.info(msg);
+            }
+        }
+
+
+        function refresh_page(){
+            loadOn()
+            $.ajax({
+                url: "{{ url_for('settings_general') }}",
+                data: {'wallet': 'setup'},
+                dataType: "json",
+                type: "POST",
+                success: function(data){
+                    loadOff()
+                    if(data.status === "success"){
+
+                    }
+                },
+                error: function(err1, err2){
+                    loadOff()
+                    notify('error', 'An error occurred. Please try again later')
+                },
+                headers: {
+                    'X-CSRFToken': getCSRFToken()
+                },
+            })
+        }
+
+        {#refresh_page()#}
+
+        $('.refresh').click(function(){
+            refresh_page()
+        })
+
+        $('.trash').click(function (){
+            loadOn()
+            $.ajax({
+                url: "{{ url_for('settings_sessions') }}",
+                type: 'POST',
+                dataType: 'json',
+                data: {'id': $(this).data('id')},
+                success: function (data){
+                    loadOff()
+                    notify(data.status, data.msg)
+                    if(data.status === "success"){
+                        setTimeout(function (){
+                            window.location.reload()
+                        }, 2000)
+                    }else{
+                        notify('error', data.msg)
+                    }
+                },
+                error: function(err1, err2){
+                    loadOff()
+                    notify('error', 'An error occurred. Please try again later')
+                },
+                headers: {
+                    'X-CSRFToken': getCSRFToken()
+                },
+            })
+        })
+
+
+    })
+</script>
+
+{% endblock %}
+

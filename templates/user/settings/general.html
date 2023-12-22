@@ -1,0 +1,142 @@
+{% extends "user/layout.html" %}
+
+{% block head_tags %}
+{% endblock %}
+
+{% block content %}
+
+
+    <div class="flex-fill overflow-y-lg-auto scrollbar bg-body rounded-top-4 rounded-top-start-lg-4 rounded-top-end-lg-0 border-top border-lg shadow-2">
+   <main class="container-fluid px-3 py-5 p-lg-6 p-xxl-8">
+      <header class="border-bottom mb-10">
+         <div class="row align-items-center">
+            <div class="col-sm-6 col-12">
+               <h1 class="ls-tight">Account Settings</h1>
+            </div>
+         </div>
+         <ul class="nav nav-tabs nav-tabs-flush gap-6 overflow-x border-0 mt-4">
+            <li class="nav-item"><a href="/pages/account-general.html" class="nav-link active">General</a></li>
+            <li class="nav-item"><a href="/pages/account-password.html" class="nav-link">Password & Security</a></li>
+            <li class="nav-item"><a href="/pages/account-notifications.html" class="nav-link">Notifications</a></li>
+         </ul>
+      </header>
+      <div class="d-flex align-items-end justify-content-between">
+         <div>
+            <h4 class="fw-semibold mb-1">General</h4>
+         </div>
+      </div>
+      <hr class="my-6">
+      <div class="row align-items-center">
+         <div class="col-md-2"><label class="form-label">Account Email</label></div>
+         <div class="col-md-8 col-xl-5">
+            <div class=""><input readonly type="email" class="form-control email" value="{{ current_user.email }}"></div>
+         </div>
+          <div class="d-none gap-2 email-block mt-5"><button type="button" class="btn btn-sm btn-neutral email-cancel">Cancel</button> <button type="submit" class="btn btn-sm btn-primary email-save">Save</button></div>
+
+          <div class="mt-5"><button type="button" class="btn btn-sm btn-neutral email-change">Change Email</button></div>
+      </div>
+
+      <hr class="my-6">
+
+      <div class="row align-items-center">
+         <div class="col-md-2"><label class="form-label">Sessions</label></div>
+        <p class="text-sm text-muted">See and manage devices that have access/logged into this account.</p>
+
+          <div class="d-md-flex gap-2 mt-5"><a href="{{ url_for('settings_sessions') }}"><button type="button" class="btn btn-sm btn-primary trash" data-id="0">See Sessions</button></a></div>
+
+      </div>
+      <hr class="my-6">
+      <div class="row align-items-center">
+         <div class="col-md-2"><label class="form-label">Auto Instant Exchange</label></div>
+        <p class="text-sm text-muted">This feature helps you to automatically exchange tokens as soon as a desired threshold is reached</p>
+
+          <div class="d-md-flex gap-2 mt-5"><a href="{{ url_for('settings_auto_exchange') }}"><button type="button" class="btn btn-sm btn-primary trash" data-id="0">Setup Instant Exchange</button></a></div>
+
+      </div>
+       <hr class="my-6">
+
+      <div class="row align-items-center">
+         <div class="col-md-2"><label class="form-label">Auto Payout</label></div>
+        <p class="text-sm text-muted">This feature helps you to automatically withdraw or send out coins to an external wallet as soon as a desired threshold is reached</p>
+
+          <div class="d-md-flex gap-2 mt-5"><a href="{{ url_for('settings_auto_payout') }}"><button type="button" class="btn btn-sm btn-primary trash" data-id="0">Setup Auto Payout</button></a></div>
+
+      </div>
+
+
+   </main>
+</div>
+
+
+<script>
+    $(function(){
+
+        var overlay= $("#overlay");
+        var loader= $("#loader");
+        function loadOn(){
+            overlay.css('display', 'block');
+            loader.css('display', 'block');
+        }
+        function loadOff(){
+            overlay.css('display', 'none');
+            loader.css('display', 'none');
+        }
+        function getCSRFToken() {
+            return $('meta[name=csrf-token]').attr('content');
+        }
+
+        function notify(status, msg){
+            if(status === "success"){
+                $.niceToast.success(msg);
+            }else if(status === "error"){
+                $.niceToast.error(msg);
+            }else if(status === "warning"){
+                $.niceToast.warning(msg);
+            }else if(status === "info"){
+                $.niceToast.info(msg);
+            }
+        }
+
+
+        $('.email-change').click(function (){
+            $('.email').attr('readonly', false)
+            $(this).toggleClass('d-none')
+            $('.email-block').toggleClass('d-none')
+        })
+
+        $('.email-cancel').click(function (){
+            $('.email').attr('readonly', true).val("{{ current_user.email }}")
+            $('.email-change').toggleClass('d-none')
+            $('.email-block').toggleClass('d-none')
+        })
+
+        $('.email-save').click(function (){
+            var email = $('.email').val()
+            if(email === ""){
+                notify('warning', 'Email cannot be empty')
+            }else{
+                loadOn()
+                $.ajax({
+                    url: "{{ url_for('settings_general') }}",
+                    data: {'action': 'email-change', 'email': email},
+                    dataType: "json",
+                    type: "POST",
+                    success: function(data){
+                        loadOff()
+                        notify(data.status, data.msg)
+                    },
+                    error: function(err1, err2){
+                        loadOff()
+                        notify('error', 'An error occurred. Please try again later')
+                    },
+                    headers: {
+                        'X-CSRFToken': getCSRFToken()
+                    },
+                })
+            }
+        })
+
+    })
+</script>
+
+{% endblock %}
