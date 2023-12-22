@@ -32,6 +32,7 @@ login_manager = LoginManager(app)
 Migrate(app=app, db=db)
 CSRFProtect(app)
 
+
 with app.app_context():
     db.create_all()
 
