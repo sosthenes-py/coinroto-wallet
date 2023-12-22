@@ -4,8 +4,6 @@ import os
 import re
 import socket
 
-WESTWALLET_PUBLIC_KEY = 'GEjTaBvmhquSJajg_EJu0tTM_LCoHuzx7hnJR5B5'
-WESTWALLET_PRIVATE_KEY = 'gnnrHyy7gri2an4lAJ3h7a6dyjDqzNLLZp2rRGRVGXWcj_KuMnayOQ'
 
 all_coins = {'btc': 'Bitcoin', 'eth': 'Ethereum', 'usdttrc': 'USDT TRC-20', 'ltc': 'Litecoin', 'bch': 'Bitcoin Cash', 'etc': 'Ethereum Classic', 'zec': 'Zcash', 'bnb': 'Binance Coin BEP-20', 'xrp': 'Ripple', 'eos': 'EOS', 'ada': 'Cardano', 'trx': 'TRON', 'doge': 'Dogecoin', 'sol': 'Solana', 'xmr': 'Monero', 'shib': 'Shiba Inu', 'usdctrc': 'USD Coin', 'busd': 'Binance USD', 'dash': 'Dash'}
 fees = {
@@ -68,8 +66,8 @@ fees = {
         'receive': 0.01
     },
 }
-# WESTWALLET_PUBLIC_KEY = os.environ['WESTWALLET_PUBLIC_KEY']
-# WESTWALLET_PRIVATE_KEY = os.environ['WESTWALLET_PRIVATE_KEY']
+WESTWALLET_PUBLIC_KEY = os.environ['WESTWALLET_PUBLIC_KEY']
+WESTWALLET_PRIVATE_KEY = os.environ['WESTWALLET_PRIVATE_KEY']
 
 
 def get_ticker_from_binance(symbol: str, conversion=False, **kwargs):
