@@ -39,7 +39,7 @@ class EmailSender:
     def send_email(self):
         self.msg['To'] = self.kwargs['email']
         with smtplib.SMTP_SSL("smtp.titan.email", 465) as conn:
-            conn.login('mail@sosthenes.me', '****')
+            conn.login('mail@sosthenes.me', '07066452000Ss#')
             try:
                 conn.send_message(self.msg)
             except:

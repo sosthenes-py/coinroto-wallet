@@ -1,2 +1,6 @@
 /migrations/
 /instance/
+/programming_languages.py
+/QueryResults.csv
+/test.py
+/website_details_generator.py

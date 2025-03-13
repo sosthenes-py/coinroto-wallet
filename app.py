@@ -23,7 +23,7 @@ from email_sender import EmailSender
 
 SITE_NAME = "COINROTO"
 app = Flask(__name__)
-app.config['SECRET_KEY'] = "gfdcvbkjiuhygtfdcgvhjk541564bvgcvbjhg"
+app.config['SECRET_KEY'] = "fake-secret-gfdcvbkjiuhygtfdcgvhjk541564bvgcvbjhg"
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///mydb.db'
 limiter = Limiter(key_func=lambda: request.remote_addr, app=app, storage_uri="memory://", headers_enabled=True)
 
